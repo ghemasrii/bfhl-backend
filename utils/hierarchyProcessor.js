@@ -12,34 +12,6 @@ function isValidEdge(edge) {
     return true;
 }
 
-function calculateDepth(node, treeMap) {
-    if (!treeMap[node] || treeMap[node].length === 0) {
-        return 1;
-    }
-
-    let maxDepth = 0;
-
-    for (const child of treeMap[node]) {
-        maxDepth = Math.max(maxDepth, calculateDepth(child, treeMap));
-    }
-
-    return maxDepth + 1;
-}
-
-function buildNestedTree(node, treeMap) {
-    let result = {};
-
-    if (!treeMap[node] || treeMap[node].length === 0) {
-        return {};
-    }
-
-    for (const child of treeMap[node]) {
-        result[child] = buildNestedTree(child, treeMap);
-    }
-
-    return result;
-}
-
 function detectCycle(node, treeMap, visited, stack) {
     if (stack.has(node)) return true;
     if (visited.has(node)) return false;
@@ -57,6 +29,37 @@ function detectCycle(node, treeMap, visited, stack) {
     return false;
 }
 
+function buildNestedTree(node, treeMap, visited = new Set()) {
+    if (visited.has(node)) return {};
+
+    visited.add(node);
+
+    let result = {};
+
+    for (const child of treeMap[node] || []) {
+        result[child] = buildNestedTree(child, treeMap, new Set(visited));
+    }
+
+    return result;
+}
+
+function calculateDepth(node, treeMap, visited = new Set()) {
+    if (visited.has(node)) return 0;
+
+    visited.add(node);
+
+    let maxDepth = 0;
+
+    for (const child of treeMap[node] || []) {
+        maxDepth = Math.max(
+            maxDepth,
+            calculateDepth(child, treeMap, new Set(visited))
+        );
+    }
+
+    return maxDepth + 1;
+}
+
 function buildHierarchyResponse(data) {
     const invalid_entries = [];
     const duplicate_edges = [];
@@ -65,7 +68,7 @@ function buildHierarchyResponse(data) {
     const childParentMap = {};
     const treeMap = {};
 
-    for (let raw of data) {
+    for (const raw of data) {
         const edge = raw.trim();
 
         if (!isValidEdge(edge)) {
@@ -82,31 +85,38 @@ function buildHierarchyResponse(data) {
 
         const [parent, child] = edge.split("->");
 
-        // multi-parent case: first parent wins
-        if (childParentMap[child]) {
-            continue;
-        }
-
-        childParentMap[child] = parent;
         edgeSet.add(edge);
 
         if (!treeMap[parent]) treeMap[parent] = [];
         if (!treeMap[child]) treeMap[child] = [];
 
         treeMap[parent].push(child);
+
+        // first parent wins
+        if (!childParentMap[child]) {
+            childParentMap[child] = parent;
+        }
     }
 
-    const allNodes = [...new Set([
-        ...Object.keys(treeMap),
-        ...Object.keys(childParentMap)
-    ])];
+    let allNodes = [
+        ...new Set([
+            ...Object.keys(treeMap),
+            ...Object.keys(childParentMap)
+        ])
+    ];
 
-    const roots = [];
+    let roots = [];
 
     for (const node of allNodes) {
         if (!childParentMap[node]) {
             roots.push(node);
         }
+    }
+
+    // PURE CYCLE FIX
+    if (roots.length === 0 && allNodes.length > 0) {
+        allNodes.sort();
+        roots.push(allNodes[0]);
     }
 
     roots.sort();
@@ -118,10 +128,12 @@ function buildHierarchyResponse(data) {
     let maxDepthFound = 0;
 
     for (const root of roots) {
-        const visited = new Set();
-        const stack = new Set();
-
-        const hasCycle = detectCycle(root, treeMap, visited, stack);
+        const hasCycle = detectCycle(
+            root,
+            treeMap,
+            new Set(),
+            new Set()
+        );
 
         if (hasCycle) {
             total_cycles++;
@@ -144,7 +156,8 @@ function buildHierarchyResponse(data) {
 
         if (
             depth > maxDepthFound ||
-            (depth === maxDepthFound && root < largest_tree_root)
+            (depth === maxDepthFound &&
+                (largest_tree_root === "" || root < largest_tree_root))
         ) {
             maxDepthFound = depth;
             largest_tree_root = root;
