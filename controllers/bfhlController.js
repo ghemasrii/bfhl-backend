@@ -1,20 +1,21 @@
-const {
-    buildHierarchyResponse
-} = require("../utils/hierarchyProcessor");
+const { buildHierarchyResponse } = require("../utils/hierarchyProcessor");
 
 const processHierarchy = (req, res) => {
     try {
-        const { data } = req.body;
+        console.log("REQUEST BODY:", req.body);
 
-        if (!Array.isArray(data)) {
+        const inputData = req.body.data;
+
+        if (!inputData || !Array.isArray(inputData)) {
             return res.status(400).json({
-                error: "data must be an array"
+                is_success: false,
+                message: "Input must be an array inside data"
             });
         }
 
-        const result = buildHierarchyResponse(data);
+        const result = buildHierarchyResponse(inputData);
 
-        res.status(200).json({
+        return res.status(200).json({
             user_id: "gottumukkalahemasri_22122005",
             email_id: "hemasri_gottumukkala@srmap.edu.in",
             college_roll_number: "AP23110011197",
@@ -22,10 +23,11 @@ const processHierarchy = (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("ERROR:", error);
 
-        res.status(500).json({
-            error: "Internal server error"
+        return res.status(500).json({
+            is_success: false,
+            message: "Server Error"
         });
     }
 };

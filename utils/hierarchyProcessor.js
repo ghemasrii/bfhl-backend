@@ -82,6 +82,7 @@ function buildHierarchyResponse(data) {
 
         const [parent, child] = edge.split("->");
 
+        // multi-parent case: first parent wins
         if (childParentMap[child]) {
             continue;
         }
@@ -95,10 +96,10 @@ function buildHierarchyResponse(data) {
         treeMap[parent].push(child);
     }
 
-    const allNodes = new Set([
+    const allNodes = [...new Set([
         ...Object.keys(treeMap),
         ...Object.keys(childParentMap)
-    ]);
+    ])];
 
     const roots = [];
 
